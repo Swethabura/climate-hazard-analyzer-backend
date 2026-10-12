@@ -10,29 +10,37 @@ database: AsyncDatabase | None = None
 async def connect_to_mongo() -> None:
     global client, database
 
-    client = AsyncMongoClient(settings.MONGODB_URL)
+    mongo_client = AsyncMongoClient(settings.MONGODB_URL)
 
-    await client.admin.command("ping")
+    try:
+        await mongo_client.admin.command("ping")
 
-    database = client[settings.MONGODB_DATABASE]
+        mongo_database = mongo_client[settings.MONGODB_DATABASE]
 
-    await database["daily_weather"].create_index(
-        [
-            ("latitude", 1),
-            ("longitude", 1),
-            ("date", 1),
-            ("source", 1),
-            ("model", 1),
-        ],
-        unique=True,
-        name="unique_daily_weather_record",
-    )
+        await mongo_database["daily_weather"].create_index(
+            [
+                ("latitude", 1),
+                ("longitude", 1),
+                ("date", 1),
+                ("source", 1),
+                ("model", 1),
+            ],
+            unique=True,
+            name="unique_daily_weather_record",
+        )
+
+        client = mongo_client
+        database = mongo_database
+
+    except Exception:
+        await mongo_client.close()
+        raise
 
 
 async def close_mongo_connection() -> None:
     global client, database
 
-    if client is None:
+    if client is not None:
         await client.close()
 
     client = None
